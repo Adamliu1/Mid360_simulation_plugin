@@ -102,24 +102,29 @@ void LivoxPointsPlugin::Load(gazebo::sensors::SensorPtr _parent, sdf::ElementPtr
     ROS_INFO_STREAM("sample:" << samplesStep);
     ROS_INFO_STREAM("downsample:" << downSample);
 
-    publishPointCloudType = sdfPtr->Get<int>("publish_pointcloud_type");
-    ROS_INFO_STREAM("publish_pointcloud_type: " << publishPointCloudType);
+    // TODO: ADAM's note, I manually modified the code here, so it pulbishes both types of pointclouds (one for CMU for testing, one for FASTLIO (custom livox_msg))
+    // publishPointCloudType = sdfPtr->Get<int>("publish_pointcloud_type");
+    // ROS_INFO_STREAM("publish_pointcloud_type: " << publishPointCloudType);
+    ROS_INFO_STREAM("publish_pointcloud_type: " << "PointCloud2 + Livox CustomMsg");
     ros::init(argc, argv, curr_scan_topic);
     rosNode.reset(new ros::NodeHandle);
-    switch (publishPointCloudType) {
-        case SENSOR_MSG_POINT_CLOUD:
-            rosPointPub = rosNode->advertise<sensor_msgs::PointCloud>(curr_scan_topic, 5);
-            break;
-        case SENSOR_MSG_POINT_CLOUD2_POINTXYZ:
-        case SENSOR_MSG_POINT_CLOUD2_LIVOXPOINTXYZRTLT:
-            rosPointPub = rosNode->advertise<sensor_msgs::PointCloud2>(curr_scan_topic, 5);
-            break;
-        case livox_laser_simulation_CUSTOM_MSG:
-            rosPointPub = rosNode->advertise<livox_laser_simulation::CustomMsg>(curr_scan_topic, 5);
-            break;
-        default:
-            break;
-    }
+    // switch (publishPointCloudType) {
+    //     case SENSOR_MSG_POINT_CLOUD:
+    //         rosPointPub = rosNode->advertise<sensor_msgs::PointCloud>(curr_scan_topic, 5);
+    //         break;
+    //     case SENSOR_MSG_POINT_CLOUD2_POINTXYZ:
+    //     case SENSOR_MSG_POINT_CLOUD2_LIVOXPOINTXYZRTLT:
+    //         rosPointPub = rosNode->advertise<sensor_msgs::PointCloud2>(curr_scan_topic, 5);
+    //         break;
+    //     case livox_laser_simulation_CUSTOM_MSG:
+    //         rosPointPub = rosNode->advertise<livox_laser_simulation::CustomMsg>(curr_scan_topic, 5);
+    //         break;
+    //     default:
+    //         break;
+    // }
+
+    rosPointPub_pt2 = rosNode->advertise<sensor_msgs::PointCloud2>(curr_scan_topic + "_pt2", 5);
+    rosPointPub = rosNode->advertise<livox_laser_simulation::CustomMsg>(curr_scan_topic, 5);
 
     visualize = sdfPtr->Get<bool>("visualize");
 
@@ -150,22 +155,24 @@ void LivoxPointsPlugin::OnNewLaserScans() {
 
         msgs::Set(laserMsg.mutable_time(), world->SimTime());
 
-        switch (publishPointCloudType) {
-            case SENSOR_MSG_POINT_CLOUD:
-                PublishPointCloud(points_pair);
-                break;
-            case SENSOR_MSG_POINT_CLOUD2_POINTXYZ:
-                PublishPointCloud2XYZ(points_pair);
-                break;
-            case SENSOR_MSG_POINT_CLOUD2_LIVOXPOINTXYZRTLT:
-                PublishPointCloud2XYZRTLT(points_pair);
-                break;
-            case livox_laser_simulation_CUSTOM_MSG:
-                PublishLivoxROSDriverCustomMsg(points_pair);
-                break;
-            default:
-                break;
-        }
+        // switch (publishPointCloudType) {
+        //     case SENSOR_MSG_POINT_CLOUD:
+        //         PublishPointCloud(points_pair);
+        //         break;
+        //     case SENSOR_MSG_POINT_CLOUD2_POINTXYZ:
+        //         PublishPointCloud2XYZ(points_pair);
+        //         break;
+        //     case SENSOR_MSG_POINT_CLOUD2_LIVOXPOINTXYZRTLT:
+        //         PublishPointCloud2XYZRTLT(points_pair);
+        //         break;
+        //     case livox_laser_simulation_CUSTOM_MSG:
+        //         PublishLivoxROSDriverCustomMsg(points_pair);
+        //         break;
+        //     default:
+        //         break;
+        // }
+        PublishPointCloud2XYZRTLT(points_pair);
+        PublishLivoxROSDriverCustomMsg(points_pair);
     }
 }
 
@@ -458,7 +465,9 @@ void LivoxPointsPlugin::PublishPointCloud2XYZ(std::vector<std::pair<int, AviaRot
     pcl::toROSMsg(pc, scan_point);
     scan_point.header.stamp = timestamp;
     scan_point.header.frame_id = frameName;
-    rosPointPub.publish(scan_point);
+    // TODO: NOTE I modified here
+    // rosPointPub.publish(scan_point);
+    rosPointPub_pt2.publish(scan_point);
     // SendRosTf(parentEntity->WorldPose(), world->Name(), raySensor->ParentName());
     ros::spinOnce();
     if (scanPub && scanPub->HasConnections() && visualize) {
@@ -528,7 +537,9 @@ void LivoxPointsPlugin::PublishPointCloud2XYZRTLT(std::vector<std::pair<int, Avi
     pcl::toROSMsg(pc, scan_point);
     scan_point.header.stamp = header_timestamp;
     scan_point.header.frame_id = frameName;
-    rosPointPub.publish(scan_point);
+    // TODO: NOTE I modified here
+    // rosPointPub.publish(scan_point);
+    rosPointPub_pt2.publish(scan_point);
     ros::spinOnce();
     if (scanPub && scanPub->HasConnections() && visualize) {
         scanPub->Publish(laserMsg);
